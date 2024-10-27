@@ -1,0 +1,154 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		.hello-msg{
+		  font-size: 18px;
+		  color: #fff;
+		  margin-right: 20px;
+		}
+        .col-md-4, .col-md-8{
+            margin-top: 10%;
+        }
+        .td{
+          text-align: center;
+      }
+      thead{
+          text-align:center;
+          font-size: 15px;
+          font-family: 'Roboto Mono', monospace;
+      }
+	  </style>
+	  
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Faculty Login Page</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
+		<img src="{% static 'images/logo.png' %}" height="50px" width="250px">
+		 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+		   <span class="navbar-toggler-icon"></span>
+		 </button>
+		 <div class="collapse navbar-collapse" id="navbarNav">
+		   <ul class="navbar-nav ml-auto">
+			 <li class="nav-item active">
+				
+			   <span class="nav-link">Hello, {{ name }} </span>
+			 </li>
+			 <li class="nav-item active">
+			   <a href="#" class="nav-link">Home</a>
+			 </li>
+			 <li class="nav-item">
+			   
+			   <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+			 </li>
+		   </ul>
+		 </div>
+	   </nav>
+        
+	<div class="container-fluid">
+        <div class="row">
+            <div class="col-md-4">
+                <h3 class="text-center alert alert-info">Faculty Form</h3>
+                
+                <form method="post" id="personForm" action="{% url 'faculty_add' id %}" data-cities-url="{% url 'ajax_load_cities' %}" novalidate>
+                        <input type="hidden" value="{{id}}" name="id">
+                        <input type="hidden" value="1" name="faculty_page">
+                
+                    {% csrf_token %}
+                    <table class="table table-striped">
+                        {{ form }}
+                    </table>
+                    <hr/>
+                    <input type="submit" class='btn btn-success col-md-12' value="Save">
+                    {% if msg is not None %}
+                        <div class="alert alert-success">
+                        <p> {{ msg }}</p>
+                        </div>
+                    {% endif %}			
+                  </form>                
+                  
+                  <script>
+                    $("#id_inst").change(function () {
+                      var url = $("#personForm").attr("data-cities-url");
+                      var countryId = $(this).val();
+                
+                      $.ajax({
+                        url: url,
+                        data: {
+                          'inst': countryId
+                        },
+                        success: function (data) {
+                          $("#id_dept").html(data);
+                        }
+                      });
+                
+                    });
+                  </script>
+                
+            </div>
+
+            <div class="col-md-8">
+				<h3 class="text-center alert alert-info">Attendence Details</h3>
+                {% if attend %}
+                <table class="table table-hover table-borderless table border-bottom table-striped">
+                    <thead class="table-primary">
+                      <tr>
+                        <th>Employee_ID</th>
+                        <th>Institute</th>
+                        <th>Department</th>
+                        <th>Date</th>
+                        <th>In-Time</th>
+                        <th>Out-Time</th>
+                        <th>Working Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for person in attend %}
+                        <tr>
+                          <td>{{ person.reg_id }}</td>
+                          <td>{{ person.inst }}</td>
+                          <td>{{ person.dept }}</td>
+                          <td>{{ person.date }}</td>
+              {% if person.in_time is None %}
+              <td>----</td>
+              {% else %}
+                          <td>{{ person.in_time }}</td>
+              {% endif %}
+						  {% if person.out_time is None %}
+							<td>----</td>
+						  {% else %}
+                          <td>{{ person.out_time }}</td>
+						  {% endif %}
+
+              {% if person.total_hour is None %}
+              <td>----</td>
+          {% elif person.total_hour > 7.49 %}
+            <td class="table-success"> {{ person.total_hour|floatformat:2 }}</td>
+          {% else %}
+            <td class="table-danger"> {{ person.total_hour|floatformat:2 }}</td>
+          {% endif %}
+                        </tr>
+                      {% empty %}
+                        
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
+
+            </div>
+        </div>
+
+
+        <div class="row">
+
+        </div>
+    </div>
+</body>
+</html>

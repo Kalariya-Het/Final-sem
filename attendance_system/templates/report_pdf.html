@@ -1,0 +1,138 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+
+    .heading{
+        text-align: center;
+        font-family:'Bookman Old Style';
+        font-size:24px;
+
+
+    }
+    .insti{
+        font-family:'Cascadia Code ';
+        font-size:16px;
+        text-align: left;
+    }
+    .info{
+        font-family:'Cascadia Code ';
+        font-size:16px;
+        text-align: center
+
+    }
+    th{
+        font-style: revert;
+    }
+    td{
+          text-align: center;
+      }
+      thead{
+          text-align:center;
+          font-size: 15px;
+          font-family: 'Roboto Mono', monospace;
+          font-weight: lighter;
+      }
+
+      .hello-msg{
+        font-size: 18px;
+        color: #fff;
+        margin-right: 20px;
+      }
+      .col-md-4, .col-md-8{
+          margin-top: 10%;
+      }
+      .center {
+         margin-left: auto;
+         margin-right: auto;
+
+     }
+
+    </style>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Attendance Page</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="heading">
+        <p>Charotar University Of Science & Technology<p>
+  </div>
+    <hr style="height:2px;border-width:0;color:black;background-color:black">
+  <div class="container-fluid">
+   <div class="row-md-8">
+  <div class="col">
+      <div class="insti">
+        <p>
+          Institute: {{inst}}<br>
+          Department: {{dept}} | Month: {{month_name}}
+
+         </p>
+      </div>
+      <div class="info">
+         <p>
+          {{inst}} {{dept}} | {{month_name}}’s Attendance Report of Faculties
+         </p>
+      </div>
+        {% if attend %}
+        <table botders = 0 class="table table-dark table-striped">
+          <br>
+            <thead class = "table-primary">
+              <tr>
+                <th>[Employee_ID]</th>
+                <th>[Institute]</th>
+                <th>[Department]</th>
+                <th>[Date]</th>
+                <th>[In-Time]</th>
+                <th>[Out-Time]</th>
+                <th>[Working Hours]</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for person in attend %}
+                <tr>
+                  <td style="font-weight: bold">| {{ person.reg_id }} |</td>
+                  <td>{{ person.inst }}</td>
+                  <td>{{ person.dept }}</td>
+                  <td>{{ person.date }}</td>
+                  {% if person.in_time is None %}
+                    <td>----</td>
+                  {% else %}
+                    <td>{{ person.in_time }}</td>
+                  {% endif %}
+
+                  {% if person.out_time is None %}
+                                    <td>----</td>
+                                  {% else %}
+                      <td>{{ person.out_time }}</td>
+                              {% endif %}
+
+                  {% if person.total_hour is None %}
+                      <td>----</td>
+                  {% elif person.total_hour > 7.49 %}
+                    <td style="background-color: greenyellow !important;"> {{ person.total_hour|floatformat:2 }}</td>
+                  {% else %}
+                    <td style="background-color: indianred !important;"> {{ person.total_hour|floatformat:2 }}</td>
+                  {% endif %}
+                </tr>
+              {% empty %}
+
+              {% endfor %}
+            </tbody>
+          </table>
+          {% endif %}
+
+    </div>
+
+  </div>
+
+    </div>
+
+</body>
+
+

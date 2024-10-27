@@ -1,0 +1,6 @@
+<select name="department">
+<option disabled='true' value="0" selected>---------</option>
+{% for city in cities %}
+<option value="{{ city.pk }}">{{ city.name }}</option>
+{% endfor %}
+</select>

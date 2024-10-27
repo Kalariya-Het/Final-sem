@@ -1,0 +1,230 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+      td{
+          text-align: center;
+      }
+      thead{
+          text-align:center;
+          font-size: 15px;
+          font-family: 'Roboto Mono', monospace;
+      }
+		.hello-msg{
+		  font-size: 18px;
+		  color: #fff;
+		  margin-right: 20px;
+		}
+        .col-md-4, .col-md-8{
+            margin-top: 10%;
+        }
+	  </style>
+
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Attendance Page</title>
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+	  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
+		<img src="{% static 'images/logo.png' %}" height="50px" width="250px">
+		 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+		   <span class="navbar-toggler-icon"></span>
+		 </button>
+		 <div class="collapse navbar-collapse" id="navbarNav">
+		   <ul class="navbar-nav ml-auto">
+			 <li class="nav-item active">
+
+			   <span class="nav-link">Hello, {{request.session.fetch_username}}</span>
+			 </li>
+			 <li class="nav-item active">
+			   <a href="{% url 'admin_home' %}" class="nav-link">Home</a>
+			 </li>
+			 <li class="nav-item">
+
+			   <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+			 </li>
+		   </ul>
+		 </div>
+	   </nav>
+       <div class="container-fluid">
+        <div class="row">
+       <div class="col-md-8">
+        <h3 class="text-center alert alert-info">Attendence Details</h3>
+        <div class="row d-flex flex-column">
+        <form method="get" action="{% url 'search' %}" style="margin-left: 2%;" class="d-flex flex-column">
+          <div>
+            <input class="form-control-md-2" type="search" placeholder="Enter Reg_ID" name="reg_id" id="reg_id" value={{request.GET.reg_id}} >
+            <input class="form-control-md-2" type="date" placeholder="Enter Date" name="f_date" id="f_date" value="{{request.GET.f_date}}">
+            <input class="form-control-md-2" type="search" placeholder="Enter Institute" name="f_inst" id="f_inst" value="{{request.GET.f_inst}}" onchange="call()">
+            <input class="form-control-md-2" type="search" placeholder="Enter Department" name="f_dept" id="f_dept" value="{{request.GET.f_dept}}" readonly>
+            <input class="form-control-md-2" hidden>
+          </div>
+
+          <script type="text/javascript">
+            function call(){
+              var inst_name=document.getElementById('f_inst').value
+              if(inst_name!='')
+              {
+                document.getElementById('f_dept').readOnly=false
+              }
+            }
+          </script>
+            <input type="submit" value="Filter" style="width:98%" class="btn btn-primary mt-2">
+        </form>
+
+        <form method="POST" action="{% url 'attendance' %}" style="margin-left: 2%;" class="d-flex flex-column mt-1">
+          {%csrf_token %}
+            <input type="submit" value="Clear" style="width:98%" class="btn btn-warning form-control-md-2">
+        </form>
+
+
+    </div>
+    <div class="col-md-12">
+        {% if attend %}
+        <table class="table table-hover table-borderless table border-bottom table-striped">
+          <br>
+            <thead class = "table-primary" >
+              <tr>
+                <th>[Employee_ID]</th>
+                <th>[Institute]</th>
+                <th>[Department]</th>
+                <th>[Date]</th>
+                <th>[In-Time]</th>
+                <th>[Out-Time]</th>
+                <th>[Working Hours]</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for person in attend %}
+                <tr>
+                  <td style="font-weight: bold">| {{ person.reg_id }} |</td>
+                  <td>{{ person.inst }}</td>
+                  <td>{{ person.dept }}</td>
+                  <td>{{ person.date }}</td>
+                  {% if person.in_time is None %}
+                    <td>----</td>
+                  {% else %}
+                    <td>{{ person.in_time }}</td>
+                  {% endif %}
+
+                  {% if person.out_time is None %}
+                                    <td>----</td>
+                                  {% else %}
+                      <td>{{ person.out_time }}</td>
+                              {% endif %}
+
+                  {% if person.total_hour is None %}
+                      <td>----</td>
+                  {% elif person.total_hour > 7.00 %}
+                    <td class="table-success"> {{ person.total_hour|floatformat:2 }}</td>
+                  {% else %}
+                    <td class="table-danger"> {{ person.total_hour|floatformat:2 }}</td>
+                  {% endif %}
+                </tr>
+              {% empty %}
+
+              {% endfor %}
+            </tbody>
+          </table> 
+          <hr>
+          {% endif %}
+        </div>
+
+    </div>
+
+    <div class="col-md-4">
+          <h3 class="text-center alert alert-info">Attendence Report</h3>
+          <h6 class="text-center alert alert-danger">Please Filter on Institute and Department both to get list of months.</h6>
+          <form action="{% url 'report' %}" method="POST">
+                <input name="f_date" id="f_date" value="{{ date }}" hidden>
+                <input name="reg_id" id="reg_id" value="{{ id }}" hidden>
+                <input name="f_inst" id="f_inst" value="{{ inst }}" hidden>
+                <input name="f_dept" id="f_dept" value="{{ dept }}" hidden>
+                {% csrf_token %}
+                <table class="table table-striped">
+                    <tr>
+                        <td>
+                            <label name="ID"><b>Month:</b></label>
+                        </td>
+                        <td>
+                            <select id="month_list" name="month_list" onchange="getmonth()">
+                                <option selected disabled='true'>-----</option>
+                                    {% for person in month %}
+                                    <option value="{{ person }}">{{ person }}</option>
+                                    {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+
+
+                <input type="submit" class="btn btn-warning col-md-12" value="Generate Excel Report" id="report">
+
+                {% if str_msg is not None %}
+                <div class="alert alert-success">
+                <p> {{ str_msg }}</p>
+                </div>
+                {% endif %}
+                {% if det_msg is not None %}
+                    <div class="alert alert-danger">
+                    <p> {{ det_msg }}</p>
+                    </div>
+                {% endif %}
+          </form>
+        <hr/>
+
+
+          <form action="{% url 'pdf_report' %}" method="POST">
+                 {% csrf_token %}
+                <input name="month_name_pdf"  id="month_name_pdf" hidden>
+               <input name="f_inst" id="f_inst" value="{{ inst }}" hidden>
+                <input name="f_dept" id="f_dept" value="{{ dept }}" hidden>
+                <input type="submit" class="btn btn-primary col-md-12" value="Generate PDF Report" id="pdf_report">
+
+                {% if str_msg is not None %}
+                <div class="alert alert-success">
+                <p> {{ str_msg }}</p>
+                </div>
+                {% endif %}
+                {% if det_msg is not None %}
+                    <div class="alert alert-danger">
+                    <p> {{ det_msg }}</p>
+                    </div>
+                {% endif %}
+          </form>
+
+
+         <hr/>
+
+         <script type="text/javascript">
+                $('#report').attr('disabled','disabled');
+                $('#pdf_report').attr('disabled','disabled');
+                function getmonth(){
+                    displayname=document.querySelector('#month_list');
+                    ans=displayname.options[displayname.selectedIndex].value;
+                    console.log(ans)
+                    if(ans!='None'){
+                        document.getElementById('month_name_pdf').value = ans;
+                        document.getElementById('report').disabled=false;
+                        document.getElementById('pdf_report').disabled=false;
+                    }else{
+
+                        document.getElementById('report').disabled=true;
+                        document.getElementById('pdf_report').disabled=true;
+                    }
+
+                }
+          </script>
+
+    </div>
+    </div>
+    </div>
+</body>
+
+

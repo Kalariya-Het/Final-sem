@@ -1,0 +1,164 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		.hello-msg{
+		  font-size: 18px;
+		  color: #fff;
+		  margin-right: 20px;
+		}
+        .col-md-4, .col-md-8{
+            margin-top: 10%;
+        }
+        .td{
+          text-align: center;
+      }
+      thead{
+          text-align:center;
+          font-size: 15px;
+          font-family: 'Roboto Mono', monospace;
+      }
+	  </style>
+	  
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Admin Login Page</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
+		<img src="{% static 'images/logo.png' %}" height="50px" width="250px">
+		 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+		   <span class="navbar-toggler-icon"></span>
+		 </button>
+		 <div class="collapse navbar-collapse" id="navbarNav">
+		   <ul class="navbar-nav ml-auto">
+			 <li class="nav-item active">
+	   
+        <span class="nav-link">Hello, {{request.session.fetch_username}}</span>
+			 </li>
+			 <li class="nav-item active">
+			   <a href="{% url 'admin_home' %}" class="nav-link">Home</a>
+         <input type="hidden" name="fetch_username" value="{{username}}">
+			 </li>
+			 <li class="nav-item">
+			   
+			   <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+			 </li>
+		   </ul>
+		 </div>
+	   </nav>
+        
+	<div class="container-fluid">
+        <div class="row">
+            <div class="col-md-4">
+                <h3 class="text-center alert alert-info">Faculty Registeration </h3>
+                {% if id is 0 %}
+                <form method="post" id="personForm" action="{% url 'faculty_add' 0 %}" data-cities-url="{% url 'ajax_load_cities' %}" novalidate>
+                  <input type="hidden" value="0" name="faculty_page">
+                  <input type="hidden" name="fetch_username" value="{{username}}">
+                {% else %}
+                <form method="post" id="personForm" action="{% url 'faculty_add' id %}" data-cities-url="{% url 'ajax_load_cities' %}" novalidate>
+                        <input type="hidden" value="{{id}}" name="id">
+                        <input type="hidden" value="0" name="faculty_page">
+                        <input type="hidden" name="fetch_username" value="{{username}}">
+                {% endif %}
+                    {% csrf_token %}
+                    <table class="table table-striped">
+                        {{ form }}
+                    </table>
+                    <hr/>
+                        <input type="submit" class="btn btn-info col-md-12" value="Save">
+                    {% if msg is not None %}
+                        <div class="alert alert-success">
+                        <p> {{ msg }}</p>
+                        </div>
+                    {% endif %}			
+                    {% if er_msg is not None %}
+                        <div class="alert alert-warning">
+                        <p> {{ er_msg }}</p>
+                        </div>
+                    {% endif %}
+                  </form>
+                  
+                
+                  
+                  <script>
+                    $("#id_inst").change(function () {
+                      var url = $("#personForm").attr("data-cities-url");
+                      var countryId = $(this).val();
+                
+                      $.ajax({
+                        url: url,
+                        data: {
+                          'inst': countryId
+                        },
+                        success: function (data) {
+                          $("#id_dept").html(data);
+                        }
+                      });
+                
+                    });
+                  </script>
+                
+            </div>
+
+            <div class="col-md-8">
+                <h3 class="text-center alert alert-info">Details of Faculties</h3>
+                {% if details %}
+                <table class="td table table-borderless table-striped table-hover table border-bottom">
+                    <thead class="table-dark">
+                      <tr>
+                        <th>Employee_ID</th>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Email</th>
+                        <th>Institute</th>
+                        <th>Department</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for person in details reversed %}
+                        <tr>
+                          <td>{{ person.reg_id }}</td>
+                          <td>{{ person.fname }}</td>
+                          <td>{{ person.lname }}</td>
+                          <td>{{ person.email }}</td>
+                          <td>{{ person.inst.name }}</td>
+                          <td>{{ person.dept.name }}</td>
+                          <td>
+                            <form action="{% url 'faculty_edit' person.id %}" method="POST" class="d-inline">
+                                {% csrf_token %}
+                            <input type="submit" class="btn btn-warning" value="Edit">
+                          </form>
+                              <form action="{% url 'faculty_delete' person.id %}" method="POST" class="d-inline">
+                                  {% csrf_token %}
+                              <input type="submit" class="btn btn-danger" value="Delete">
+                            </form>
+                          </td>
+                        </tr>
+                      {% empty %}
+                        
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
+
+                  {% if del_msg is not None %}
+                        <div class="alert alert-danger">
+                        <p> {{ del_msg }}</p>
+                        </div>
+                    {% endif %}	
+            </div>
+        </div>
+
+
+
+    </div>
+</body>
+</html>

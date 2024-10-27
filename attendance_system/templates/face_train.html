@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		.hello-msg{
+		  font-size: 18px;
+		  color: #fff;
+		  margin-right: 20px;
+		}
+        .col-md-4, .col-md-8{
+            margin-top: 10%;
+        }
+	  </style>
+	  
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Face Train Page</title>
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js" integrity="sha256-+C0A5Ilqmu4QcSPxrlGpaZxJ04VjsRjKu+G82kl5UJk=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/css/selectize.bootstrap3.min.css" integrity="sha256-ze/OEYGcFbPRmvCnrSeKbRTtjG4vGLHXgOqsyLFTRjg=" crossorigin="anonymous" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</head>
+<body>
+	<nav class="navbar navbar-expand-lg navbar-dark fixed-top bg-dark">
+		<img src="{% static 'images/logo.png' %}" height="50px" width="250px">
+		 <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+		   <span class="navbar-toggler-icon"></span>
+		 </button>
+		 <div class="collapse navbar-collapse" id="navbarNav">
+		   <ul class="navbar-nav ml-auto">
+			 <li class="nav-item active">
+	   
+                <span class="nav-link">Hello, {{request.session.fetch_username}}</span>
+			 </li>
+			 <li class="nav-item active">
+			   <a href="{% url 'admin_home' %}" class="nav-link">Home</a>
+			 </li>
+			 <li class="nav-item">
+			   
+			   <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+			 </li>
+		   </ul>
+		 </div>
+	   </nav>
+       <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-8">
+                <h3 class="text-center alert alert-info">Register Faculty's Face</h3>
+                <form action="{% url 'take_pic' %}" method="POST">
+                    {% csrf_token %}
+                <table class="table table-striped">
+                    <tr>
+                        <td>
+                            <label name="ID"><b>Reg_ID:</b></label>
+                        </td>
+                        <td>
+                            <select id="reg_list" name="reg_list" onchange="getid()">
+                                <option selected hidden disabled='true'></option>
+                                    {% for person in details %}
+                                    <option value="{{ person.reg_id }}">{{ person.reg_id }}</option>
+                                    {% endfor %}
+                            </select>        
+                        </td>
+                    </tr>
+                </table>
+                <hr/>
+               
+                    
+                <input type="submit" class="btn btn-warning col-md-12" value="Take Pictures" id="take_pic">
+                {% if str_msg is not None %}
+                <div class="alert alert-success">
+                <p> {{ str_msg }}</p>
+                </div>
+            {% endif %}
+            {% if det_msg is not None %}
+                <div class="alert alert-danger">
+                <p> {{ det_msg }}</p>
+                </div>
+            {% endif %}
+              </form>
+            </div>
+            <script type="text/javascript">
+                    $('#take_pic').attr('disabled','disabled');
+                    function getid(){
+                        displayname=document.querySelector('#reg_list');
+                        ans=displayname.options[displayname.selectedIndex].value;
+                        if(ans!='None'){
+                            document.getElementById('take_pic').disabled=false;
+                        }else{
+                            document.getElementById('take_pic').disabled=true;
+                        }
+                        
+                    }
+                    $(document).ready(function () {
+                        $('select').selectize({
+                            sortField: 'text'
+                        });
+                    });
+            </script>
+            
+        </div>
+    </div>
+
+</body>
+
+
