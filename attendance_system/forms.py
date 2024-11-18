@@ -10,7 +10,7 @@ class FacultyRegisteration(forms.ModelForm):
             'fname':forms.TextInput(attrs={'class':'form-control'}),
             'lname':forms.TextInput(attrs={'class':'form-control'}),
             'email':forms.EmailInput(attrs={'class':'form-control'}),
-            # 'password':forms.PasswordInput(attrs={'class':'form-control'}),
+            'password':forms.PasswordInput(attrs={'class':'form-control'}),
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

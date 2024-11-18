@@ -58,7 +58,7 @@ class Person(models.Model):
     dept = models.ForeignKey(City, on_delete=models.SET_NULL,blank=True, null=True)
     is_pass_change=models.BooleanField(blank=True,null=True,default=True)
 
-
+ 
     def __str__(self):
         # print("inside model str :: institute is -->",self.inst," and department is -->",self.dept)
         # print("Boolean value is : ",( (str(self.inst) == 'DEPSTAR') and (str(self.dept) == 'CSE') ) )
@@ -113,7 +113,7 @@ class Person(models.Model):
 
   <option value="5">IT</option>
 
-</select><input type="hidden" name="password" value="'''+str(self.password)+'''" id="id_password"></td></tr>
+</select><input type="text" name="password" value="'''+str(self.password)+'''" id="id_password"></td></tr>
         ''')
 
         elif str(self.inst) is "DEPSTAR" and str(self.dept) is "CE":

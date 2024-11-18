@@ -40,6 +40,9 @@ import openpyxl
 import xlsxwriter
 import collections
 from django.db.models import Sum
+import cv2
+import time
+from django.shortcuts import render
 # Create your views here.
 
 dates_lis=[]
@@ -71,7 +74,7 @@ def admin_login(request,id=None):
     msg=None
     if request.method=='POST':
         user=authenticate(request,username=request.POST.get('username'),password=request.POST.get('password'))
-        if user is not None:
+        if user != None:
             request.session['fetch_username']=request.POST.get('username')
             return render(request,'admin_menu.html',{'username':request.POST.get('username')})
         else:
@@ -90,154 +93,135 @@ def faculty_edit(request,id):
 
 
 #This function is used to add details of faculty in Admin module
-def faculty_add(request,id=0):
-    username=request.session['fetch_username']
-    details=Person.objects.all()
-    msg=None
-    er_msg=None
-    #This regular expression for validating email
+def faculty_add(request, id):
+    msg = ''
+    er_msg = ''
+    details = {}  # Initialize details if not already defined
+    username = request.user.username if request.user.is_authenticated else None
+
     regex_1 = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}\w+[.]\w{2,3}$'
-    regex_2='^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+    regex_2 = '^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w{2,3}$'
+    
+    # Default password
+    default_password = 'demo@123'
 
-    if request.method=='POST':
-        faculty_page_var=request.POST['faculty_page']
-        print("value of faculty_page_var is : ",faculty_page_var)
+    if request.method == 'POST':
+        faculty_page_var = request.POST.get('faculty_page', '')
+        print("value of faculty_page_var is:", faculty_page_var)
 
-        if id is 0:    #This condition is for to check whether new faculty entry or not
-            form=FacultyRegisteration(request.POST)
-        else:          #This condition implies that faculty data is already stored but admin try to edit details
-            form=FacultyEditEmail(request.POST)
-        
-        
-        
-        inst=form.cleaned_data['inst']
-        dept=form.cleaned_data['dept']
-        reg_id=form.cleaned_data['reg_id']
-        if form.is_valid() and (inst is not None) and (dept is not None) and (reg_id is not None):
-            if Person.objects.filter(reg_id=reg_id).exists() and (id is 0):  #New entry of faculty has not unique email
-                er_msg="This Register ID is already in use."
-                return render(request,'admin_login.html',{'form':form,'er_msg':er_msg,'id':0,'details':details,'username':username})
-            else:
-                fname=form.cleaned_data['fname']
-                lname=form.cleaned_data['lname']
-                email=form.cleaned_data['email']
-                if not (re.search(regex_1,email) or re.search(regex_2,email) ):   #New entry of faculty has not matched email with reg_ex
-                    er_msg="Email is not written in proper manner."
-                    return render(request,'admin_login.html',{'form':form,'er_msg':er_msg,'id':0,'details':details,'username':username})
-                if Person.objects.filter(email=email).exists() and (id is 0):     #New entry of faculty has not unique email
-                    er_msg="This Email is already in use."
-                    return render(request,'admin_login.html',{'form':form,'er_msg':er_msg,'id':0,'details':details,'username':username})
+        # Determine if it's a new entry or an edit
+        if id == 0:  # New faculty entry
+            form = FacultyRegisteration(request.POST)
+        else:  # Existing faculty data is being edited
+            form = FacultyEditEmail(request.POST)
 
-                if id is not 0 and faculty_page_var!='1':                       #Edit faculty details inside Admin module
-                    pk_=request.POST['id']
-                    password=str(form.cleaned_data['password'])
-                    print("pk : ", request.POST['id'])
-                    pi=Person.objects.get(pk=pk_)
-                    pi_str=str(pi)
-                    values=[]
-                    for word in set(pi_str.split()):
-                        indexes = [w.start() for w in re.finditer("value", pi_str)]
-                    indexes= [n+6 for n in indexes]
-                    quote_index=[]
-                    for index in indexes:
-                        quote_index.append(pi_str.find('"',index+1))
-                    
-                    for i in range(len(indexes)):
-                        values.append(pi_str[indexes[i]+1:quote_index[i]])
-                    
-                    if values[2]!=str(email):                           #To check whether email is changed or not while editing faculty data
-                        if Person.objects.filter(email=email).exists():  #Updated email is not unique 
-                            er_msg="This Email is already in use."
-                            return render(request,'admin_login.html',{'form':form,'er_msg':er_msg,'id':id,'details':details,'username':username})
+        if form.is_valid():  # Check if the form is valid
+            inst = form.cleaned_data['inst']
+            dept = form.cleaned_data['dept']
+            reg_id = form.cleaned_data['reg_id']
+            fname = form.cleaned_data['fname']
+            lname = form.cleaned_data['lname']
+            email = form.cleaned_data['email']
 
-                        letters = string.ascii_lowercase
-                        result_str = ''.join(random.choice(letters) for i in range(6))
-                        print("Random password is : ",result_str)  
-                        
-                        subject = 'Welcome to CHARUSAT Facial based Attendance System'
-                        text = 'Hi '+fname+', Please keep your password : "'+result_str+'" remember for access your profile page.'
+            # Validate institution, department, and registration ID
+            if inst is None or dept is None or reg_id is None:
+                er_msg = "Institution, Department, or Registration ID cannot be None."
+                return render(request, 'admin_login.html', {'form': form, 'er_msg': er_msg, 'id': id, 'details': details, 'username': username})
 
-                        to=email
-                        gmail_user='jp739709@gmail.com'
-                        gmail_pwd='Indian02'
-                        message='Subject : {}\n\n{}'.format(subject,text)
-                        smtpserver=smtplib.SMTP('smtp.gmail.com',587)
-                        smtpserver.ehlo()
-                        smtpserver.starttls()
-                        smtpserver.ehlo
-                        smtpserver.login(gmail_user, gmail_pwd)
-                        smtpserver.sendmail(gmail_user,to,message)
-                        print("Done...")
-                        smtpserver.close()
+            # Check for unique registration ID for new entries
+            if Person.objects.filter(reg_id=reg_id).exists() and id == 0:
+                er_msg = "This Register ID is already in use."
+                return render(request, 'admin_login.html', {'form': form, 'er_msg': er_msg, 'id': id, 'details': details, 'username': username})
 
-                        password=make_password(result_str,"a")
-                    id=id+1
-                    pi.delete()
+            # Validate email format
+            if not (re.search(regex_1, email) or re.search(regex_2, email)):
+                er_msg = "Email != written in a proper manner."
+                return render(request, 'admin_login.html', {'form': form, 'er_msg': er_msg, 'id': id, 'details': details, 'username': username})
 
-                else:                              #If email is changed and also unique entry
-                    if faculty_page_var!='1':
-                        pass
-                    letters = string.ascii_lowercase
-                    result_str = ''.join(random.choice(letters) for i in range(6))
-                    print("Random password is : ",result_str)  
-                    
-                    subject = 'Welcome to CHARUSAT Facial based Attendance System'
-                    text = 'Hi '+fname+', Please keep your password : "'+result_str+'" remember for access your profile page.'
-                    
+            # Check for unique email for new entries
+            if Person.objects.filter(email=email).exists() and id == 0:
+                er_msg = "This Email is already in use."
+                return render(request, 'admin_login.html', {'form': form, 'er_msg': er_msg, 'id': id, 'details': details, 'username': username})
 
-                    to=email
-                    gmail_user='jp739709@gmail.com'
-                    gmail_pwd='Indian02'
-                    message='Subject : {}\n\n{}'.format(subject,text)
-                    smtpserver=smtplib.SMTP('smtp.gmail.com',587)
-                    smtpserver.ehlo()
-                    smtpserver.starttls()
-                    smtpserver.ehlo
-                    smtpserver.login(gmail_user, gmail_pwd)
-                    smtpserver.sendmail(gmail_user,to,message)
-                    print("Done...")
-                    smtpserver.close()
+            # Handling faculty edits
+            if id != 0 and faculty_page_var != '1':  # Edit faculty details inside Admin module
+                pk_ = request.POST.get('id')
+                pi = Person.objects.get(pk=pk_)
+                original_email = pi.email
 
-                    password=make_password(result_str,"a")
-                    
+                if original_email != email:  # If the email is changed
+                    if Person.objects.filter(email=email).exists():  # Updated email != unique
+                        er_msg = "This Email is already in use."
+                        return render(request, 'admin_login.html', {'form': form, 'er_msg': er_msg, 'id': id, 'details': details, 'username': username})
 
-            if faculty_page_var!='1' and id is 0:     #To store new entry of faculty
-                reg=Person(fname=fname,lname=lname,email=email,password=password,inst=inst,dept=dept,reg_id=reg_id)
-                reg.save()
-                msg= 'Details of Faculty Saved Succesfully '
-            
-            if faculty_page_var!='1' and id is not 0:  #To store edited entry of faculty
-                reg=Person(fname=fname,lname=lname,email=email,password=password,inst=inst,dept=dept,reg_id=reg_id,is_pass_change=0)
-                reg.save()
-                msg= 'Details of Faculty Saved Succesfully '
+                    # Assign the default password
+                    result_str = default_password
 
+                    password = make_password(result_str, "a")
+                    pi.delete()  # Delete the old entry if necessary
 
-            if faculty_page_var=='1':          #To edit data in faculty via Faculty module
-                pk_=str(int(request.POST['id']))
-                print("pk_ is : ",pk_)
-                
-                attend=Attendance.objects.filter(reg_id=reg_id).filter(inst=inst).filter(dept=dept)
-                fet_obj=Person.objects.get(pk=pk_)
-                fet_obj.is_pass_change=False
-                fet_obj.fname=fname
-                fet_obj.lname=lname
-                fet_obj.inst=inst
-                fet_obj.dept=dept
+                else:
+                    password = pi.password  # Keep the old password if unchanged
 
+            else:  # If new entry or email hasn't changed
+                # Assign the default password
+                result_str = default_password
+                password = make_password(result_str, "a")
+
+            # Save or update the faculty information
+            if faculty_page_var != '1':
+                if id == 0:  # To store new entry of faculty
+                    reg = Person(fname=fname, lname=lname, email=email, password=password, inst=inst, dept=dept, reg_id=reg_id)
+                    reg.save()
+                    msg = 'Details of Faculty Saved Successfully'
+                else:  # To store edited entry of faculty
+                    reg = Person.objects.get(pk=id)
+                    reg.fname = fname
+                    reg.lname = lname
+                    reg.email = email
+                    reg.password = password
+                    reg.inst = inst
+                    reg.dept = dept
+                    reg.reg_id = reg_id
+                    reg.save()
+                    msg = 'Details of Faculty Updated Successfully'
+
+            if faculty_page_var == '1':  # To edit data in faculty via Faculty module
+                pk_ = str(int(request.POST['id']))
+                attend = Attendance.objects.filter(reg_id=reg_id, inst=inst, dept=dept)
+                fet_obj = Person.objects.get(pk=pk_)
+                fet_obj.is_pass_change = False
+                fet_obj.fname = fname
+                fet_obj.lname = lname
+                fet_obj.inst = inst
+                fet_obj.dept = dept
                 fet_obj.save()
-                msg="Faculty Updated Successfully"
-                name=str(fet_obj.fname)+" "+str(fet_obj.lname)
-                return render(request,'faculty_update.html',{'form':form, 'id':pk_,'msg':msg,'name':name,'attend':attend,'username':username})
+                msg = "Faculty Updated Successfully"
+                name = f"{fet_obj.fname} {fet_obj.lname}"
+                return render(request, 'faculty_update.html', {'form': form, 'id': pk_, 'msg': msg, 'name': name, 'attend': attend, 'username': username})
 
         else:
-            er_msg="Some fields are need to fill up to save details"
-            return render(request,'admin_login.html',{'form':form,'details':details,'er_msg':er_msg,'id':0,'username':username})
-        
+            er_msg = "Some fields need to be filled to save details."
+            return render(request, 'admin_login.html', {'form': form, 'details': details, 'er_msg': er_msg, 'id': id, 'username': username})
+
+    return render(request, 'admin_login.html', {'form': form, 'msg': msg, 'details': details, 'id': id, 'username': username})
 
 
-    return render(request,'admin_login.html',{'form':form,'msg':msg,'details':details,'id':id,'username':username})
+# def send_welcome_email(fname, email, password):
+#     subject = 'Welcome to CHARUSAT Facial based Attendance System'
+#     text = f'Hi {fname}, Please keep your password: "{password}" to access your profile page.'
 
+#     gmail_user = 'your_email@gmail.com'  # Replace with your email
+#     gmail_pwd = 'your_password'  # Replace with your password
+#     message = f'Subject: {subject}\n\n{text}'
 
+#     with smtplib.SMTP('smtp.gmail.com', 587) as smtpserver:
+#         smtpserver.ehlo()
+#         smtpserver.starttls()
+#         smtpserver.ehlo()
+#         smtpserver.login(gmail_user, gmail_pwd)
+#         smtpserver.sendmail(gmail_user, email, message)
+#         print("Email sent successfully.")
 
 #To display edit form for faculty in Admin module
 def faculty_update(request,id):
@@ -330,7 +314,7 @@ def take_pic(request,det_msg=None):
         
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = detector.detectMultiScale(gray, 1.3, 5, minSize=(30,30),flags = cv2.CASCADE_SCALE_IMAGE)
-        if faces is ():
+        if faces == ():
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(img, 'No Face is Detected',(220,220), font, 0.8, (255,0,0),1)
 
@@ -410,7 +394,7 @@ def TrainImages(request,reg_id):
                     known_face_names.append(label)
                     known_face_encodings.append(img_encoding)
                 except IndexError as e:
-                    take_pic(request,det_msg='Face Recognition data is not done succesfully, please try again')
+                    take_pic(request,det_msg='Face Recognition data != done succesfully, please try again')
 
                 
     
@@ -418,232 +402,181 @@ def TrainImages(request,reg_id):
 def recognize(request):
     face_locations = []
     face_encodings = []
-    values=[]
+    values = []
     names = []
 
-    
-    known_face_names=[]
-    known_face_encodings=[]
+    known_face_names = []
+    known_face_encodings = []
 
-    fet_train_obj=TrainingData.objects.all()
-    
+    fet_train_obj = TrainingData.objects.all()
+
     for obj in fet_train_obj:
         known_face_names.append(obj.reg_id)
         known_face_encodings.append(pickle.loads(base64.b64decode(obj.array)))
-    
-        
+
     ip, is_routable = get_client_ip(request)
-    #print("ip of client is in recognize : ",ip)
+    # print("ip of client is in recognize : ",ip)
     video = cv2.VideoCapture(0)
-    Timer_var=int(10)
-    print("knonwn face names : ",known_face_names)
-    print("known face encoding : ",known_face_encodings)
-    while True and Timer_var>0:	      #Webcam is open till timer ends
+    Timer_var = int(10)
+    print("known face names : ", known_face_names)
+    print("known face encoding : ", known_face_encodings)
+    
+    while True and Timer_var > 0:  # Webcam is open till timer ends
         check, frame = video.read()
+        if not check or frame is None:  # Check if frame is valid
+            print("Failed to capture image from the webcam.")
+            break  # Exit the loop if frame is invalid
+        
         font = cv2.FONT_HERSHEY_DUPLEX
-        cv2.putText(frame,'Press S to close.',(10,20),font,0.8,(255,0,0),1)
-        small_frame = cv2.resize(frame, (0,0), fx=0.5, fy= 0.5)
-        rgb_small_frame = small_frame[:,:,::-1]
+        cv2.putText(frame, 'Press S to close.', (10, 20), font, 0.8, (255, 0, 0), 1)
+        small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+        # rgb_small_frame = small_frame[:, :, ::-1]
+        rgb_small_frame = cv2.cvtColor(rgb_small_frame , cv2.COLOR_BGR2RGB)
         face_locations = face_recognition.face_locations(rgb_small_frame)
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
         face_names = []
-        if len(face_locations)==0:            #If no face is detected
-            cv2.putText(frame, 'No Face is Detected,Time left is : '+str(Timer_var)+' seconds.',(30,220), font, 0.8, (0,0,255),1)
-            prev=time.time()
+        
+        if len(face_locations) == 0:  # If no face is detected
+            cv2.putText(frame, 'No Face is Detected, Time left is : ' + str(Timer_var) + ' seconds.', (30, 220), font, 0.8, (0, 0, 255), 1)
+            prev = time.time()
             time.sleep(1)
-            curr=time.time()
+            curr = time.time()
 
-            if curr-prev>=1:
-                prev=curr
-                Timer_var=Timer_var-1
-                print("Timer left to close is ",Timer_var," seconds...")
+            if curr - prev >= 1:
+                prev = curr
+                Timer_var = Timer_var - 1
+                print("Timer left to close is ", Timer_var, " seconds...")
         else:
-            Timer_var=10
+            Timer_var = 10
 
         for face_encoding in face_encodings:
-            matches = face_recognition.compare_faces(known_face_encodings, np.array(face_encoding), tolerance = 0.6)
-            face_distances = face_recognition.face_distance(known_face_encodings,face_encoding)	
+            matches = face_recognition.compare_faces(known_face_encodings, np.array(face_encoding), tolerance=0.6)
+            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
             try:
-                matches = face_recognition.compare_faces(known_face_encodings, np.array(face_encoding), tolerance = 0.6)
-                face_distances = face_recognition.face_distance(known_face_encodings,face_encoding)
-                
-                #to get accuracy
-                if face_distances[0]>0.6:
-                
-                    rg=0.4
-                    linear_val=(1-face_distances[0])/(rg * 2)
-                    answer=round(linear_val*100,2)
-                    
-                    if answer<40:
-                        answer=round(answer*2.5,2)
-                        
+                matches = face_recognition.compare_faces(known_face_encodings, np.array(face_encoding), tolerance=0.6)
+                face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
 
-                
+                # to get accuracy
+                if face_distances[0] > 0.6:
+                    rg = 0.4
+                    linear_val = (1 - face_distances[0]) / (rg * 2)
+                    answer = round(linear_val * 100, 2)
+
+                    if answer < 40:
+                        answer = round(answer * 2.5, 2)
+
                 else:
-                
-                    rg=0.6
-                    linear_val=(1.0-face_distances[0])/(rg * 2.0)
-                    answer= (round(linear_val + ( (1 - round(linear_val,2) ) * math.pow( abs(round(linear_val -0.5,2))* 2, 0.2 ) ),2) * 100 )+10
-                    if answer>95:
-                        answer-=6
-
-
+                    rg = 0.6
+                    linear_val = (1.0 - face_distances[0]) / (rg * 2.0)
+                    answer = (round(linear_val + ((1 - round(linear_val, 2)) * math.pow(abs(round(linear_val - 0.5, 2)) * 2, 0.2)), 2) * 100) + 10
+                    if answer > 95:
+                        answer -= 6
 
                 best_match_index = np.argmin(face_distances[0])
 
                 for i in range(len(matches)):
                     if matches[i]:
                         name = known_face_names[i]
-                        name=str(name)
+                        name = str(name)
                         face_names.append(name)
                         if name not in names:
                             names.append(name)
             except:
                 pass
+
         if len(face_names) == 0:
-            for (top,right,bottom,left) in face_locations:
-                top*=2
-                right*=2
-                bottom*=2
-                left*=2
-                cv2.rectangle(frame, (left,top),(right,bottom), (0,0,255), 2)
+            for (top, right, bottom, left) in face_locations:
+                top *= 2
+                right *= 2
+                bottom *= 2
+                left *= 2
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
                 font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(frame, 'Unknown', (left, top), font, 0.8, (255,255,255),1)
+                cv2.putText(frame, 'Unknown', (left, top), font, 0.8, (255, 255, 255), 1)
         else:
-            pi=str(Person.objects.get(reg_id=name))
-                
+            pi = str(Person.objects.get(reg_id=name))
+
             for word in set(pi.split()):
                 indexes = [w.start() for w in re.finditer("value", pi)]
-            indexes= [n+6 for n in indexes]
-            quote_index=[]
+            indexes = [n + 6 for n in indexes]
+            quote_index = []
             for index in indexes:
-                quote_index.append(pi.find('"',index+1))
-            
-            values=[]
-            if name not in values:        
-                for i in range(len(indexes)):
-                    values.append(pi[indexes[i]+1:quote_index[i]])
+                quote_index.append(pi.find('"', index + 1))
 
-            for (top,right,bottom,left), name in zip(face_locations, face_names):
-                top*=2
-                right*=2
-                bottom*=2
-                left*=2
-                cv2.rectangle(frame, (left,top),(right,bottom), (0,255,0), 2)
+            values = []
+            if name not in values:
+                for i in range(len(indexes)):
+                    values.append(pi[indexes[i] + 1:quote_index[i]])
+
+            for (top, right, bottom, left), name in zip(face_locations, face_names):
+                top *= 2
+                right *= 2
+                bottom *= 2
+                left *= 2
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
                 font = cv2.FONT_HERSHEY_DUPLEX
-                cv2.putText(frame, name+'-'+values[0]+' '+values[1]+' ('+str(answer)+'%)', (left, top), font, 0.8, (255,255,255),1)
-            
-                
-                print("After recognizing data : ",values)
-                final_value=[]
-                ts=time.time()
+                cv2.putText(frame, name + '-' + values[0] + ' ' + values[1] + ' (' + str(answer) + '%)', (left, top), font, 0.8, (255, 255, 255), 1)
+
+                print("After recognizing data : ", values)
+                final_value = []
+                ts = time.time()
                 date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
                 timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
 
-                subject = 'Welcome to CHARUSAT Facial based Attendance System'
-                to=values[2]
-                gmail_user='jp739709@gmail.com'
-                gmail_pwd='Indian02'
-                attendance_obj=Attendance.objects.all()
+                attendance_obj = Attendance.objects.all()
                 try:
-                    in_time_obj=Attendance.objects.filter(reg_id=values[3]).filter(date=date)
+                    in_time_obj = Attendance.objects.filter(reg_id=values[3]).filter(date=date)
                 except:
-                    in_time_obj=None
+                    in_time_obj = None
 
-                
-                # print("is_status variable comparison is : ", (str(in_time_obj_str_lis[-1]) == 'False' ) )
                 if in_time_obj:
-                    in_time_obj_str=" ".join([str(x) for x in in_time_obj])
-                    in_time_obj_str_lis=in_time_obj_str.split(' ')
-                    
+                    in_time_obj_str = " ".join([str(x) for x in in_time_obj])
+                    in_time_obj_str_lis = in_time_obj_str.split(' ')
 
-                    if (str(in_time_obj_str_lis[-4]) == 'False'): 
-                        fetch_obj=Attendance.objects.get(pk=in_time_obj_str_lis[0])
-                        
-                        tmp_intime_str=str(fetch_obj.in_time)
-                        tmp_outtime_str=str(timeStamp)
-                        tmp_date=str(fetch_obj.date)
-                        if fetch_obj.is_leave and (str(in_time_obj_str_lis[5])=='None'):
-                            
-                            fetch_obj.in_time=timeStamp
-                            fetch_obj.is_status=1
+                    if (str(in_time_obj_str_lis[-4]) == 'False'):
+                        fetch_obj = Attendance.objects.get(pk=in_time_obj_str_lis[0])
+
+                        tmp_intime_str = str(fetch_obj.in_time)
+                        tmp_outtime_str = str(timeStamp)
+                        tmp_date = str(fetch_obj.date)
+                        if fetch_obj.is_leave and (str(in_time_obj_str_lis[5]) == 'None'):
+
+                            fetch_obj.in_time = timeStamp
+                            fetch_obj.is_status = 1
                             fetch_obj.save()
-                            text = 'Hi '+values[0]+' '+values[1]+' from Institue of '+values[4]+' and Department '+values[8]+' on Date '+date+', Your In-Time punch is taken at "'+timeStamp+'" .'
-
-                            message='Subject : {}\n\n{}'.format(subject,text)
-                            smtpserver=smtplib.SMTP('smtp.gmail.com',587)
-                            smtpserver.ehlo()
-                            smtpserver.starttls()
-                            smtpserver.ehlo
-                            smtpserver.login(gmail_user, gmail_pwd)
-                            smtpserver.sendmail(gmail_user,to,message)
-                            
-                            smtpserver.close()
 
                         else:
-                            fetch_obj.out_time=timeStamp
-                            tdelta=datetime.datetime.strptime(tmp_outtime_str,'%H:%M:%S')-datetime.datetime.strptime(tmp_intime_str,'%H:%M:%S')
-                            tdelta=str(tdelta)
-                            ddetlta_in=tmp_date.split('-')
-                            ddelta_today=date.split('-')
-                            
-                            tdelta_lis=tdelta.split(':')
-                            total_min=int(tdelta_lis[0])*60+int(tdelta_lis[1])
-                            total_min=round(total_min/60,2)
-                            
+                            fetch_obj.out_time = timeStamp
+                            tdelta = datetime.datetime.strptime(tmp_outtime_str, '%H:%M:%S') - datetime.datetime.strptime(tmp_intime_str, '%H:%M:%S')
+                            tdelta = str(tdelta)
+                            ddetlta_in = tmp_date.split('-')
+                            ddelta_today = date.split('-')
+
+                            tdelta_lis = tdelta.split(':')
+                            total_min = int(tdelta_lis[0]) * 60 + int(tdelta_lis[1])
+                            total_min = round(total_min / 60, 2)
+
                             if fetch_obj.is_leave:
-                                if fetch_obj.shift_leave=='2':
-                                    total_min=7.50
+                                if fetch_obj.shift_leave == '2':
+                                    total_min = 7.50
                                 else:
-                                    total_min+=3.5
-                        
-                            if ddetlta_in[2]==ddelta_today[2]:
-                                fetch_obj.total_hour=total_min
-                            fetch_obj.is_status=1
-                            fetch_obj.save()
-                            text = 'Hi '+values[0]+' '+values[1]+' from Institue of '+in_time_obj_str_lis[2]+' and Department '+in_time_obj_str_lis[3]+' on Date '+in_time_obj_str_lis[4]+' having In-Time punch of '+in_time_obj_str_lis[5]+', Your Out-Time punch is taken at "'+timeStamp+'" with Total Working Hours is : '+str(total_min)+' .'
+                                    total_min += 3.5
 
-                            message='Subject : {}\n\n{}'.format(subject,text)
-                            smtpserver=smtplib.SMTP('smtp.gmail.com',587)
-                            smtpserver.ehlo()
-                            smtpserver.starttls()
-                            smtpserver.ehlo
-                            smtpserver.login(gmail_user, gmail_pwd)
-                            smtpserver.sendmail(gmail_user,to,message)
-                            
-                            smtpserver.close()
+                            if ddetlta_in[2] == ddelta_today[2]:
+                                fetch_obj.total_hour = total_min
+                                fetch_obj.is_status = 1
+                                fetch_obj.save()
 
-                    else:
-                        pass
-                else:
-                    
-                    att_obj=Attendance(reg_id=values[3], inst=values[4], dept=values[8],date=date,in_time=timeStamp,is_status=1)
-                    att_obj.save()
-                    text = 'Hi '+values[0]+' '+values[1]+' from Institue of '+values[4]+' and Department '+values[8]+' on Date '+date+', Your In-Time punch is taken at "'+timeStamp+'" .'
-
-                    message='Subject : {}\n\n{}'.format(subject,text)
-                    smtpserver=smtplib.SMTP('smtp.gmail.com',587)
-                    smtpserver.ehlo()
-                    smtpserver.starttls()
-                    smtpserver.ehlo
-                    smtpserver.login(gmail_user, gmail_pwd)
-                    smtpserver.sendmail(gmail_user,to,message)
-                    
-                    smtpserver.close()
-
-                    
-
-
-        cv2.imshow("Face Recognition Panel",frame)
+        cv2.imshow("Face Recognition Panel", frame)
         if cv2.waitKey(1) == ord('s'):
             break
-    
+
     video.release()
     cv2.destroyAllWindows()
-    qs_obj=Attendance.objects.all().update(is_status=0)
+    qs_obj = Attendance.objects.all().update(is_status=0)
     print("status changed to 0 ...")
 
-    return render(request,'main.html')
+    return render(request, 'main.html')
 
 #To logout from Admin module
 def logout(request):
@@ -661,9 +594,10 @@ def faculty_login(request):
         form=Person.objects.filter(reg_id=rid)
         key=Person.objects.values('id').get(reg_id=rid)['id']
         
-        if len(form) is 0:
-            message="No matching ID is found."
-            return render(request,'main.html',{'message':message})
+        if len(form) == 0:
+            message = "No matching ID is found."
+            return render(request, 'main.html', {'message': message})
+
         pi=str(form)
         for word in set(pi.split()):
             indexes = [w.start() for w in re.finditer("value", pi)]
@@ -688,9 +622,9 @@ def faculty_login(request):
 
         first_pass_change=Person.objects.get(pk=key)
 
-        if len(pk) is 1 and ( str(first_pass_change.is_pass_change) == 'True'):      #If credentails are valid and it is first time login by faculty
+        if len(pk) == 1 and ( str(first_pass_change.is_pass_change) == 'True'):      #If credentails are valid and it is first time login by faculty
             return render(request,"password_change.html",{'rid':rid,'id':key})
-        if len(pk) is 1:                                                           #If credentailsa are valid and faculty module is accessed.
+        if len(pk) == 1:                                                           #If credentailsa are valid and faculty module is accessed.
             form=Person.objects.get(pk=key)
             pi=str(Person.objects.get(pk=key))
             values=[]
@@ -795,7 +729,7 @@ def forget_pass_admin_view(request):
 
             return render(request,'change_admin_pass.html',{'result_str':result_str,'email':email})
         else:
-            message="This email address is not stored in Admin Database."
+            message="This email address != stored in Admin Database."
             return render(request,'forget_pass_admin.html',{'message':message})
 
 #To validate code and update new password for Admin module
@@ -815,7 +749,7 @@ def change_admin_pass(request):
             msg="Admin password is changed successfully..."
 
         else:
-            message="Entered Code is not matched with the emailed one."
+            message="Entered Code != matched with the emailed one."
             return render(request,'change_admin_pass.html',{'message':message,'email':email,'result_str':code_fetch})
 
     return render(request,"main.html",{'msg':msg})
@@ -837,7 +771,7 @@ def forget_change_pass(request):
             pi=Person.objects.filter(email=email).values('id')
             print("length of found pi is : ",len(pi)==0)
             if len(pi)==0:
-                message="This Email address is not found in database."
+                message="This Email address != found in database."
                 return render(request,'forget_pass.html',{'message':message})
 
             key=Person.objects.values('id').get(email=email)['id']
@@ -853,10 +787,10 @@ def forget_change_pass(request):
             for i in range(len(indexes)):
                 values.append(pi[indexes[i]+1:quote_index[i]])
 
-            #print("values in faculty login is : ",values)
+            print("values in faculty login is : ",values)
             letters = string.ascii_lowercase
             result_str = ''.join(random.choice(letters) for i in range(6))
-            #print("Random password is : ",result_str)
+            print("Random password is : ",result_str)
 
             forget_pass_change=Person.objects.get(pk=key)
             forget_pass_change.password=make_password(result_str,"a")
@@ -882,7 +816,7 @@ def forget_change_pass(request):
             message="New Password is sent in the Email."
             return render(request,'main.html',{'message':message})
         else:
-            message="Email is not written in proper manner."
+            message="Email != written in proper manner."
             return render(request,'forget_pass.html',{'message':message})
             
 #To apply various search filter on attendance details of all faculties inside Admin module
@@ -896,16 +830,16 @@ def search(request):
     query_inst=request.GET['f_inst']
     query_dept=request.GET['f_dept']
     month_name=[]
-    if query_id is '' and query_date is '' and query_inst is '' and query_dept is '':
+    if query_id == '' and query_date == '' and query_inst == '' and query_dept == '':
         print("1")
         pass
-    if query_id is '' and query_date is '' and query_inst is '' and query_dept is not '':
+    if query_id == '' and query_date == '' and query_inst == '' and query_dept != '':
         print("2")
         pass
-    if query_id is '' and query_date is '' and query_inst is not '' and query_dept is '':
+    if query_id == '' and query_date == '' and query_inst != '' and query_dept == '':
         print("3")
         attendances=Attendance.objects.filter(inst=query_inst)
-    if query_id is '' and query_date is '' and query_inst is not '' and query_dept is not '':
+    if query_id == '' and query_date == '' and query_inst != '' and query_dept != '':
         print("4")
         attendances=Attendance.objects.filter(inst=query_inst).filter(dept=query_dept)
 
@@ -1055,11 +989,11 @@ def search(request):
                             ws.write_column(chr(ord('B')+k)+'2',('A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'),r_font)
                             present_lis=res_.get(id__set[k])
                             #print("values after dividing in months inside i=0 if for 31: ",present_lis)
-                            if int_date is not None:
+                            if int_date != None:
                                 for j in range(len(int_date)):
                                     ws.write(chr(ord('B')+k)+str(int_date[j]+1),'H',h_font)
 
-                            if present_lis is not None:
+                            if present_lis != None:
                                 for j in range(len(present_lis)):
                                     ws.write(chr(ord('B')+k)+str(present_lis[j]+1),'P',g_font)
                                     
@@ -1069,7 +1003,7 @@ def search(request):
                             else:
                                 ws.write(chr(ord('B')+k)+str(34),0)
                             
-                            if int_date is not None:
+                            if int_date != None:
                                 ws.conditional_format( chr(ord('B')+k)+str(34), {'type':'cell','criteria':'>=','value':(31-len(int_date))//2 ,'format':format2} )
                                 ws.conditional_format( chr(ord('B')+k)+str(34), {'type':'cell','criteria':'<','value':(31-len(int_date))//2,'format':format1} )
                             else:
@@ -1136,11 +1070,11 @@ def search(request):
                             ws.write_column(chr(ord('B')+k)+'2',('A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'),r_font)
                             present_lis=res_.get(id__set[k])
                             #print("values after dividing in months inside i!=0 else for 31: ",present_lis)
-                            if int_date is not None:
+                            if int_date != None:
                                 for j in range(len(int_date)):
                                     ws.write(chr(ord('B')+k)+str(int_date[j]+1),'H',h_font)
 
-                            if present_lis is not None:
+                            if present_lis != None:
                                 for j in range(len(present_lis)):
                                     ws.write(chr(ord('B')+k)+str(present_lis[j]+1),'P',g_font)
                                 
@@ -1148,7 +1082,7 @@ def search(request):
                                 
                             else:
                                 ws.write(chr(ord('B')+k)+str(34),0)
-                            if int_date is not None:
+                            if int_date != None:
                                 ws.conditional_format( chr(ord('B')+k)+str(34), {'type':'cell','criteria':'>=','value':(31-len(int_date))//2,'format':format2} )
                                 ws.conditional_format( chr(ord('B')+k)+str(34), {'type':'cell','criteria':'<','value':(31-len(int_date))//2,'format':format1} )
                             else:
@@ -1228,10 +1162,10 @@ def search(request):
                             ws.write_column(chr(ord('B')+k)+'2',('A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'),r_font)
                             present_lis=res_.get(id__set[k])
                             #print("values after dividing in months inside i=0 if for 30: ",present_lis)
-                            if int_date is not None:
+                            if int_date != None:
                                 for j in range(len(int_date)):
                                     ws.write(chr(ord('B')+k)+str(int_date[j]+1),'H',h_font)
-                            if present_lis is not None:
+                            if present_lis != None:
                                 for j in range(len(present_lis)):
                                     ws.write(chr(ord('B')+k)+str(present_lis[j]+1),'P',g_font)
                                 
@@ -1239,7 +1173,7 @@ def search(request):
                                 
                             else:
                                 ws.write(chr(ord('B')+k)+str(33),0)
-                            if int_date is not None:
+                            if int_date != None:
                                 ws.conditional_format( chr(ord('B')+k)+str(33), {'type':'cell','criteria':'>=','value':(30-len(int_date))//2,'format':format2} )
                                 ws.conditional_format( chr(ord('B')+k)+str(33), {'type':'cell','criteria':'<','value':(30-len(int_date))//2,'format':format1} )
                             else:
@@ -1305,10 +1239,10 @@ def search(request):
                             ws.write_column(chr(ord('B')+k)+'2',('A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A','A'),r_font)
                             present_lis=res_.get(id__set[k])
                             #print("values after dividing in months inside i!=0 else for 30: ",present_lis)
-                            if int_date is not None:
+                            if int_date != None:
                                 for j in range(len(int_date)):
                                     ws.write(chr(ord('B')+k)+str(int_date[j]+1),'H',h_font)
-                            if present_lis is not None:
+                            if present_lis != None:
                                 for j in range(len(present_lis)):
                                     ws.write(chr(ord('B')+k)+str(present_lis[j]+1),'P',g_font)
                                 
@@ -1316,7 +1250,7 @@ def search(request):
                                 
                             else:
                                 ws.write(chr(ord('B')+k)+str(33),0)
-                            if int_date is not None:
+                            if int_date != None:
                                 ws.conditional_format( chr(ord('B')+k)+str(33), {'type':'cell','criteria':'>=','value':(30-len(int_date))//2,'format':format2} )
                                 ws.conditional_format( chr(ord('B')+k)+str(33), {'type':'cell','criteria':'<','value':(30-len(int_date))//2,'format':format1} )
                             else:
@@ -1348,40 +1282,40 @@ def search(request):
 
 
 
-    if query_id is '' and query_date is not '' and query_inst is '' and query_dept is '':
+    if query_id == '' and query_date != '' and query_inst == '' and query_dept == '':
         print("5")
         attendances=Attendance.objects.filter(date=query_date)
-    if query_id is '' and query_date is not '' and query_inst is '' and query_dept is not '':
+    if query_id == '' and query_date != '' and query_inst == '' and query_dept != '':
         print("6")
         attendances=Attendance.objects.filter(date=query_date)
-    if query_id is '' and query_date is not '' and query_inst is not '' and query_dept is'':
+    if query_id == '' and query_date != '' and query_inst != '' and query_dept =='':
         print("7")
         attendances=Attendance.objects.filter(date=query_date).filter(inst=query_inst)
-    if query_id is  '' and query_date is not '' and query_inst is not '' and query_dept is not  '':
+    if query_id ==  '' and query_date != '' and query_inst != '' and query_dept !=  '':
         print("8")
         attendances=Attendance.objects.filter(date=query_date).filter(inst=query_inst).filter(dept=query_dept)
-    if query_id is not '' and query_date is '' and query_inst is '' and query_dept is  '':
+    if query_id != '' and query_date == '' and query_inst == '' and query_dept ==  '':
         print("9")
         attendances=Attendance.objects.filter(reg_id=query_id)
-    if query_id is not '' and query_date is '' and query_inst is '' and query_dept is not '':
+    if query_id != '' and query_date == '' and query_inst == '' and query_dept != '':
         print("10")
         attendances=Attendance.objects.filter(reg_id=query_id)
-    if query_id is not '' and query_date is '' and query_inst is not '' and query_dept is '':
+    if query_id != '' and query_date == '' and query_inst != '' and query_dept == '':
         print("11")
         attendances=Attendance.objects.filter(reg_id=query_id).filter(inst=query_inst)
-    if query_id is not '' and query_date is '' and query_inst is not '' and query_dept is not '':
+    if query_id != '' and query_date == '' and query_inst != '' and query_dept != '':
         print("12")
         attendances=Attendance.objects.filter(reg_id=query_id).filter(inst=query_inst).filter(dept=query_dept)
-    if query_id is not '' and query_date is not '' and query_inst is '' and query_dept is '':
+    if query_id != '' and query_date != '' and query_inst == '' and query_dept == '':
         print("13")
         attendances=Attendance.objects.filter(reg_id=query_id).filter(date=query_date)
-    if query_id is not '' and query_date is not '' and query_inst is '' and query_dept is not '':
+    if query_id != '' and query_date != '' and query_inst == '' and query_dept != '':
         print("14")
         attendances=Attendance.objects.filter(reg_id=query_id).filter(date=query_date)
-    if query_id is not '' and query_date is not '' and query_inst is not '' and query_dept is '':
+    if query_id != '' and query_date != '' and query_inst != '' and query_dept == '':
         print("15")
         attendances=Attendance.objects.filter(reg_id=query_id).filter(date=query_date).filter(inst=query_inst)
-    if query_id is not '' and query_date is not '' and query_inst is not '' and query_dept is not '':
+    if query_id != '' and query_date != '' and query_inst != '' and query_dept != '':
         print("16")
         attendances=Attendance.objects.filter(reg_id=query_id).filter(date=query_date).filter(inst=query_inst).filter(dept=query_dept)
 
