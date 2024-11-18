@@ -43,6 +43,14 @@ from django.db.models import Sum
 import cv2
 import time
 from django.shortcuts import render
+import cv2
+import os
+import re
+from django.shortcuts import render
+from .models import Person
+from .forms import FacultyRegisteration
+# from .views import TrainImages  # Assuming you have this function defined elsewhere
+
 # Create your views here.
 
 dates_lis=[]
@@ -277,70 +285,87 @@ def faculty_delete(request,id):
         return render(request,'admin_login.html',{'form':form,'del_msg':msg,'details':details,'id':0,'username':username})
 
 #To take pictures of faculty inside Admin module
-def take_pic(request,det_msg=None):
-    username=request.session['fetch_username']
-    form=FacultyRegisteration()
-    details=Person.objects.all()
-    str_msg=None
-    reg_id=request.POST['reg_list']
+
+def take_pic(request, det_msg=None):
+    username = request.session['fetch_username']
+    form = FacultyRegisteration()
+    details = Person.objects.all()
+    str_msg = None
+    reg_id = request.POST['reg_list']
     print(reg_id)  
-    pi=str(Person.objects.get(reg_id=reg_id))
-    values=[]
+
+    # Fetch the person's information
+    pi = str(Person.objects.get(reg_id=reg_id))
+    values = []
+    
+    # Extract specific details from the person's info (using regex)
     for word in set(pi.split()):
         indexes = [w.start() for w in re.finditer("value", pi)]
-    indexes= [n+6 for n in indexes]
-    quote_index=[]
+    indexes = [n + 6 for n in indexes]
+    quote_index = []
     for index in indexes:
-        quote_index.append(pi.find('"',index+1))
+        quote_index.append(pi.find('"', index + 1))
     
     for i in range(len(indexes)):
-        values.append(pi[indexes[i]+1:quote_index[i]])
+        values.append(pi[indexes[i] + 1:quote_index[i]])
     
-    print("Value is : ",values)
+    print("Value is: ", values)
 
+    # Initialize webcam for capturing images
     video = cv2.VideoCapture(0)
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    image_dir = os.path.join(base_dir,"{}\{}\{}\{}".format('static','TrainingImage',values[4],values[8] ))
-    xml_dir=os.path.join(base_dir,"{}".format('static'))
-    print("IMage path :",image_dir)
-    print("XML path :",xml_dir)
-    harcascadePath = xml_dir+"\haarcascade_frontalface_default.xml"
+    image_dir = os.path.join(base_dir, "static", "TrainingImage", values[4], values[8])
+    xml_dir = os.path.join(base_dir, "static")
+    
+    print("Image path:", image_dir)
+    print("XML path:", xml_dir)
+
+    # Load Haar cascade classifier for face detection
+    harcascadePath = os.path.join(xml_dir, "haarcascade_frontalface_default.xml")
     detector = cv2.CascadeClassifier(harcascadePath)
     sampleNum = 0
-    while True:	       #Open Webcam
+
+    # Start capturing video and detecting faces
+    while True:
         ret, img = video.read()
-        small_frame = cv2.resize(img, (0,0), fx=0.5, fy= 0.5)
-        rgb_small_frame = small_frame[:,:,::-1]
+        small_frame = cv2.resize(img, (0, 0), fx=0.5, fy=0.5)
+        rgb_small_frame = small_frame[:, :, ::-1]
         
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = detector.detectMultiScale(gray, 1.3, 5, minSize=(30,30),flags = cv2.CASCADE_SCALE_IMAGE)
-        if faces == ():
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(img, 'No Face is Detected',(220,220), font, 0.8, (255,0,0),1)
+        faces = detector.detectMultiScale(gray, 1.3, 5, minSize=(30, 30), flags=cv2.CASCADE_SCALE_IMAGE)
 
-        for(x,y,w,h) in faces:
-            cv2.rectangle(img, (x, y), (x+w, y+h), (10, 159, 255), 2)
-            
-            if sampleNum<=9:
-                cv2.imwrite(image_dir+"\\" +reg_id + '.0' + str(sampleNum) + ".jpg", gray[y:y+h, x:x+w])
+        if len(faces) == 0:  # No faces detected
+            font = cv2.FONT_HERSHEY_DUPLEX
+            cv2.putText(img, 'No Face is Detected', (220, 220), font, 0.8, (255, 0, 0), 1)
+        else:
+            for (x, y, w, h) in faces:
+                cv2.rectangle(img, (x, y), (x + w, y + h), (10, 159, 255), 2)
                 
-            else:
-                cv2.imwrite(image_dir+"\\" +reg_id + '.' + str(sampleNum) + ".jpg", gray[y:y+h, x:x+w])
-            
-            
-            #incrementing sample number
-            sampleNum = sampleNum+1
-        if sampleNum>99:
-            str_msg="Images are stored..."
+                if sampleNum <= 9:
+                    cv2.imwrite(os.path.join(image_dir, f"{reg_id}.0{sampleNum}.jpg"), gray[y:y + h, x:x + w])
+                else:
+                    cv2.imwrite(os.path.join(image_dir, f"{reg_id}.{sampleNum}.jpg"), gray[y:y + h, x:x + w])
+                
+                # Increment sample number
+                sampleNum += 1
+        
+        if sampleNum > 99:  # Stop capturing after 100 samples
+            str_msg = "Images are stored..."
             break
-        cv2.imshow("Face Training Panel",img)
-        if cv2.waitKey(1) == ord('q'):
+
+        # Show the video stream in the window
+        cv2.imshow("Face Training Panel", img)
+
+        if cv2.waitKey(1) == ord('q'):  # Press 'q' to quit the video window
             break
+
     video.release()
     cv2.destroyAllWindows()
-    TrainImages(request,reg_id)
-    return render(request,'face_train.html',{'str_msg':str_msg,'det_msg':det_msg,'details':details,'username':username})
 
+    # Call the TrainImages function after capturing the images
+    TrainImages(request, reg_id)
+
+    return render(request, 'face_train.html', {'str_msg': str_msg, 'det_msg': det_msg, 'details': details, 'username': username})
 
 
 #To train images and stored inside database as numpy array
@@ -430,7 +455,7 @@ def recognize(request):
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(frame, 'Press S to close.', (10, 20), font, 0.8, (255, 0, 0), 1)
         small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-        # rgb_small_frame = small_frame[:, :, ::-1]
+        rgb_small_frame = small_frame[:, :, ::-1]
         rgb_small_frame = cv2.cvtColor(rgb_small_frame , cv2.COLOR_BGR2RGB)
         face_locations = face_recognition.face_locations(rgb_small_frame)
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
